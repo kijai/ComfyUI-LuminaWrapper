@@ -17,7 +17,7 @@ Then either download it yourself to `ComfyUI/models/LLM/gemma-2b` (don't need th
 **Don't leave your token to the node or it might be saved in the result metadata!**
 
 
-![image](https://github.com/kijai/ComfyUI-LuminaWrapper/assets/40791699/d20cb547-cb8f-43d1-96a5-570601d152c4)
+![image](https://github.com/kijai/ComfyUI-LuminaWrapper/assets/40791699/d1efae46-590a-441e-ad42-9590062b3837)
 
 Original repo:
 https://github.com/Alpha-VLLM/Lumina-T2X
