@@ -30,7 +30,6 @@ class DownloadAndLoadLuminaModel:
                     {
                     "default": 'bf16'
                     }),
-            "hf_token": ("STRING", { "default": "" }),
             },
         }
 
@@ -39,7 +38,7 @@ class DownloadAndLoadLuminaModel:
     FUNCTION = "loadmodel"
     CATEGORY = "LuminaWrapper"
 
-    def loadmodel(self, model, precision, hf_token):
+    def loadmodel(self, model, precision):
         device = mm.get_torch_device()
         dtype = {"bf16": torch.bfloat16, "fp16": torch.float16, "fp32": torch.float32}[precision]
 
@@ -55,6 +54,41 @@ class DownloadAndLoadLuminaModel:
                             local_dir_use_symlinks=False)
                   
         train_args = torch.load(os.path.join(model_path, "model_args.pth"))
+
+        model = models.__dict__[train_args.model](qk_norm=train_args.qk_norm, cap_feat_dim=2048)
+        model.eval().to(dtype)
+
+        sd = load_torch_file(os.path.join(model_path, "consolidated.00-of-01.safetensors"))
+        model.load_state_dict(sd, strict=True)
+        
+        lumina_model = {
+            'model': model, 
+            'train_args': train_args,
+            'dtype': dtype
+            }
+
+        return (lumina_model,)
+
+class DownloadAndLoadGemmaModel:
+    @classmethod
+    def INPUT_TYPES(s):
+        return {"required": {
+            "precision": ([ 'bf16','fp32'],
+                    {
+                    "default": 'bf16'
+                    }),
+            "hf_token": ("STRING", { "default": "" }),
+            },
+        }
+
+    RETURN_TYPES = ("GEMMAODEL",)
+    RETURN_NAMES = ("gemma_model",)
+    FUNCTION = "loadmodel"
+    CATEGORY = "LuminaWrapper"
+
+    def loadmodel(self, precision, hf_token):
+        device = mm.get_torch_device()
+        dtype = {"bf16": torch.bfloat16, "fp16": torch.float16, "fp32": torch.float32}[precision]
 
         gemma_path = os.path.join(folder_paths.models_dir, "LLM", "gemma-2b")
           
@@ -78,29 +112,19 @@ class DownloadAndLoadLuminaModel:
         tokenizer.padding_side = "right"
 
         text_encoder = AutoModel.from_pretrained(gemma_path, torch_dtype=dtype, device_map=device).eval()
-        cap_feat_dim = text_encoder.config.hidden_size
 
-        model = models.__dict__[train_args.model](qk_norm=train_args.qk_norm, cap_feat_dim=cap_feat_dim)
-        model.eval().to(dtype)
+        gemma_model = {
+            'tokenizer': tokenizer,
+            'text_encoder': text_encoder
+        }
 
-        sd = load_torch_file(os.path.join(model_path, "consolidated.00-of-01.safetensors"))
-        model.load_state_dict(sd, strict=True)
-        
-        lumina_model = {
-            'model': model, 
-            'tokenizer': tokenizer, 
-            'text_encoder': text_encoder,
-            'train_args': train_args,
-            'dtype': dtype
-            }
-
-        return (lumina_model,)
-
+        return (gemma_model,)
+    
 class LuminaGemmaTextEncode:
     @classmethod
     def INPUT_TYPES(s):
         return {"required": {
-            "lumina_model": ("LUMINAMODEL", ),
+            "gemma_model": ("GEMMAODEL", ),
             "latent": ("LATENT", ),
             "prompt": ("STRING", {"multiline": True, "default": "",}),
             "n_prompt": ("STRING", {"multiline": True, "default": "",}),
@@ -112,12 +136,12 @@ class LuminaGemmaTextEncode:
     FUNCTION = "encode"
     CATEGORY = "LuminaWrapper"
 
-    def encode(self, lumina_model, latent, prompt, n_prompt):
+    def encode(self, gemma_model, latent, prompt, n_prompt):
         device = mm.get_torch_device()
         offload_device = mm.unet_offload_device()
 
-        tokenizer = lumina_model['tokenizer']
-        text_encoder = lumina_model['text_encoder']
+        tokenizer = gemma_model['tokenizer']
+        text_encoder = gemma_model['text_encoder']
         text_encoder.to(device)
 
         B = latent["samples"].shape[0]
@@ -153,9 +177,9 @@ class LuminaT2ISampler:
     @classmethod
     def INPUT_TYPES(s):
         return {"required": {
-            "latent": ("LATENT", ),
             "lumina_model": ("LUMINAMODEL", ),
             "lumina_embeds": ("LUMINATEMBED", ),
+            "latent": ("LATENT", ),
             "seed": ("INT", {"default": 0, "min": 0, "max": 0xffffffffffffffff}),
             "steps": ("INT", {"default": 25, "min": 1, "max": 200, "step": 1}),
             "cfg": ("FLOAT", {"default": 4.0, "min": 0.0, "max": 20.0, "step": 0.01}),
@@ -214,7 +238,6 @@ class LuminaT2ISampler:
         if proportional_attn:
             model_kwargs["proportional_attn"] = True
             model_kwargs["base_seqlen"] = (train_args.image_size // 16) ** 2
-            print(model_kwargs["base_seqlen"])
         else:
             model_kwargs["proportional_attn"] = False
             model_kwargs["base_seqlen"] = None
@@ -241,10 +264,12 @@ class LuminaT2ISampler:
 NODE_CLASS_MAPPINGS = {
     "LuminaT2ISampler": LuminaT2ISampler,
     "DownloadAndLoadLuminaModel": DownloadAndLoadLuminaModel,
+    "DownloadAndLoadGemmaModel": DownloadAndLoadGemmaModel,
     "LuminaGemmaTextEncode": LuminaGemmaTextEncode
 }
 NODE_DISPLAY_NAME_MAPPINGS = {
     "LuminaT2ISampler": "Lumina T2I Sampler",
     "DownloadAndLoadLuminaModel": "DownloadAndLoadLuminaModel",
+    "DownloadAndLoadGemmaModel": "DownloadAndLoadGemmaModel",
     "LuminaGemmaTextEncode": "Lumina Gemma Text Encode"
 }
