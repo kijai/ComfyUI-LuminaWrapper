@@ -187,7 +187,7 @@ class LuminaT2ISampler:
         model = lumina_model['model']
         dtype = lumina_model['dtype']
         
-        z = latent["samples"]
+        z = latent["samples"].clone()
 
         B = z.shape[0]
         W = z.shape[3] * 8
@@ -205,9 +205,6 @@ class LuminaT2ISampler:
 
         cap_feats=lumina_embeds['prompt_embeds']
         cap_mask=lumina_embeds['prompt_masks']
-
-        #cap_feats = cap_feats.repeat(B, 1, 1)
-        #cap_mask = cap_mask.repeat(B, 1)
 
         model_kwargs = dict(
                         cap_feats=cap_feats,
