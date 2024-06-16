@@ -233,7 +233,7 @@ class LuminaT2ISampler:
         model.to(offload_device)
         samples = samples[:len(samples) // 2]
 
-        factor = 0.18215
+        factor = 0.13025
         samples = samples / factor
 
         return ({'samples': samples},)   
