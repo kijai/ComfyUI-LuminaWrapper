@@ -169,10 +169,10 @@ class Attention(nn.Module):
         nn.init.xavier_uniform_(self.wo.weight)
 
         if qk_norm:
-            self.q_norm = nn.LayerNorm(self.n_local_heads * self.head_dim)
-            self.k_norm = nn.LayerNorm(self.n_local_kv_heads * self.head_dim)
+            self.q_norm = ops.LayerNorm(self.n_local_heads * self.head_dim)
+            self.k_norm = ops.LayerNorm(self.n_local_kv_heads * self.head_dim)
             if y_dim > 0:
-                self.ky_norm = nn.LayerNorm(self.n_local_kv_heads * self.head_dim)
+                self.ky_norm = ops.LayerNorm(self.n_local_kv_heads * self.head_dim)
             else:
                 self.ky_norm = nn.Identity()
         else:
@@ -588,7 +588,7 @@ class FinalLayer(nn.Module):
 
     def __init__(self, hidden_size, patch_size, out_channels):
         super().__init__()
-        self.norm_final = nn.LayerNorm(
+        self.norm_final = ops.LayerNorm(
             hidden_size,
             elementwise_affine=False,
             eps=1e-6,
@@ -657,7 +657,7 @@ class NextDiT(nn.Module):
 
         self.t_embedder = TimestepEmbedder(min(dim, 1024))
         self.cap_embedder = nn.Sequential(
-            nn.LayerNorm(cap_feat_dim),
+            ops.LayerNorm(cap_feat_dim),
             ops.Linear(
                 cap_feat_dim,
                 min(dim, 1024),

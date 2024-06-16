@@ -78,7 +78,10 @@ class ODE:
         
         self.use_sd3 = use_sd3
         self.sampler_type = sampler_type
-        total_steps = (len(self.t) * 2) - 2
+        if self.sampler_type == "euler":
+            total_steps = len(self.t)
+        else:
+            total_steps = (len(self.t) * 2) - 2
         self.comfy_pbar = ProgressBar(total_steps)
         self.pbar = tqdm(total = total_steps, desc='ODE Sampling')
 
