@@ -157,7 +157,7 @@ class LuminaT2ISampler:
             "lumina_model": ("LUMINAMODEL", ),
             "lumina_embeds": ("LUMINATEMBED", ),
             "seed": ("INT", {"default": 0, "min": 0, "max": 0xffffffffffffffff}),
-            "steps": ("INT", {"default": 50, "min": 1, "max": 200, "step": 1}),
+            "steps": ("INT", {"default": 25, "min": 1, "max": 200, "step": 1}),
             "cfg": ("FLOAT", {"default": 4.0, "min": 0.0, "max": 20.0, "step": 0.01}),
             "proportional_attn": ("BOOLEAN", {"default": False}),
             "do_extrapolation": ("BOOLEAN", {"default": False}),
