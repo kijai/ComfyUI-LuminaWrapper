@@ -1,5 +1,7 @@
 import torch as th
 from torchdiffeq import odeint
+from comfy.utils import ProgressBar
+from tqdm import tqdm
 
 def sample(x1):
     """Sampling x0 & t based on shape of x1 (if needed)
@@ -76,6 +78,9 @@ class ODE:
         
         self.use_sd3 = use_sd3
         self.sampler_type = sampler_type
+        total_steps = (len(self.t) * 2) - 2
+        self.comfy_pbar = ProgressBar(total_steps)
+        self.pbar = tqdm(total = total_steps, desc='ODE Sampling')
 
     def sample(self, x, model, **model_kwargs):
         device = x[0].device if isinstance(x, tuple) else x.device
@@ -84,6 +89,8 @@ class ODE:
             def _fn(t, x):
                 t = th.ones(x[0].size(0)).to(device) * t if isinstance(x, tuple) else th.ones(x.size(0)).to(device) * t
                 model_output = model(x, t, **model_kwargs)
+                self.pbar.update(1)
+                self.comfy_pbar.update(1)
                 return model_output
         else:
             cfg_scale = model_kwargs["cfg_scale"]
@@ -100,4 +107,5 @@ class ODE:
             
         t = self.t.to(device)
         samples = odeint(_fn, x, t, method=self.sampler_type)
+        self.pbar.close()
         return samples

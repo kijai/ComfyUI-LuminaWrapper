@@ -4,14 +4,11 @@ from torchvision import transforms
 from huggingface_hub import hf_hub_download
 import os
 import sys
-import random
-import numpy as np
-from contextlib import nullcontext
+import math
 
 import comfy.model_management as mm
 from comfy.utils import ProgressBar, load_torch_file
 import folder_paths
-
 
 script_directory = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(script_directory)
@@ -26,10 +23,14 @@ class DownloadAndLoadLuminaModel:
         return {"required": {
             "model": (
                     [ 
-                        'Alpha-VLLM/Lumina-Next-SFT',
+                    'Alpha-VLLM/Lumina-Next-SFT',
                     ],
                     {
                     "default": 'Alpha-VLLM/Lumina-Next-SFT'
+                    }),
+            "precision": ([ 'bf16','fp32'],
+                    {
+                    "default": 'bf16'
                     }),
             "hf_token": ("STRING", { "default": "" }),
             },
@@ -40,9 +41,10 @@ class DownloadAndLoadLuminaModel:
     FUNCTION = "loadmodel"
     CATEGORY = "LuminaWrapper"
 
-    def loadmodel(self, model, hf_token):
+    def loadmodel(self, model, precision, hf_token):
         device = mm.get_torch_device()
-        dtype = torch.float16
+        dtype = {"bf16": torch.bfloat16, "fp16": torch.float16, "fp32": torch.float32}[precision]
+
 
         model_name = model.rsplit('/', 1)[-1]
         model_path = os.path.join(folder_paths.models_dir, "lumina", model_name)
@@ -64,7 +66,7 @@ class DownloadAndLoadLuminaModel:
         cap_feat_dim = text_encoder.config.hidden_size
 
         model = models.__dict__[train_args.model](qk_norm=train_args.qk_norm, cap_feat_dim=cap_feat_dim)
-        model.eval().to(device, dtype=dtype)
+        model.eval().to(dtype)
 
         sd = load_torch_file(os.path.join(model_path, "consolidated.00-of-01.safetensors"))
         model.load_state_dict(sd, strict=True)
@@ -73,7 +75,8 @@ class DownloadAndLoadLuminaModel:
             'model': model, 
             'tokenizer': tokenizer, 
             'text_encoder': text_encoder,
-            'train_args': train_args
+            'train_args': train_args,
+            'dtype': dtype
             }
 
         return (lumina_model,)
@@ -138,6 +141,8 @@ class LuminaT2ISampler:
             "steps": ("INT", {"default": 50, "min": 1, "max": 200, "step": 1}),
             "cfg": ("FLOAT", {"default": 4.0, "min": 0.0, "max": 20.0, "step": 0.01}),
             "proportional_attn": ("BOOLEAN", {"default": False}),
+            "do_extrapolation": ("BOOLEAN", {"default": False}),
+            "scaling_watershed": ("FLOAT", {"default": 0.3, "min": 0.0, "max": 1.0, "step": 0.01}),
             "t_shift": ("INT", {"default": 4, "min": 1, "max": 20, "step": 1}),
             "solver": (
             [   'euler',
@@ -145,7 +150,7 @@ class LuminaT2ISampler:
                 'rk4',
             ],
             {
-            "default": 'euler'
+            "default": 'midpoint'
              }),
             },
         }
@@ -155,25 +160,29 @@ class LuminaT2ISampler:
     FUNCTION = "process"
     CATEGORY = "LuminaWrapper"
 
-    def process(self, lumina_model, lumina_embeds, latent, seed, steps, cfg, proportional_attn, solver, t_shift):
+    def process(self, lumina_model, lumina_embeds, latent, seed, steps, cfg, proportional_attn, solver, t_shift, 
+                do_extrapolation, scaling_watershed):
         device = mm.get_torch_device()
         offload_device = mm.unet_offload_device()
-        dtype=torch.float16
-        #z = latent["samples"]
-        latent_w, latent_h = 1024 // 8, 1024 // 8
-
-        torch.random.manual_seed(int(seed))
-        z = torch.randn([1, 4, latent_h, latent_w], device=device).to(dtype)
-        z = z.repeat(2, 1, 1, 1)
 
         model = lumina_model['model']
-        cap_feats = lumina_embeds['prompt_embeds']
-        cap_mask = lumina_embeds['prompt_masks']
-        train_args = lumina_model['train_args']
+        dtype = lumina_model['dtype']
         
+        z = latent["samples"]
+        torch.manual_seed(seed)
+        noise = torch.randn_like(z)
+        z = z + noise
+        z = z.repeat(2, 1, 1, 1)
+        z = z.to(dtype).to(device)
+
+        w = z.shape[3] * 8
+        h = z.shape[2] * 8
+
+        train_args = lumina_model['train_args']
+
         model_kwargs = dict(
-                        cap_feats=cap_feats,
-                        cap_mask=cap_mask,
+                        cap_feats=lumina_embeds['prompt_embeds'],
+                        cap_mask=lumina_embeds['prompt_masks'],
                         cfg_scale=cfg,
                     )
         if proportional_attn:
@@ -184,16 +193,22 @@ class LuminaT2ISampler:
             model_kwargs["proportional_attn"] = False
             model_kwargs["base_seqlen"] = None
 
-        # if do_extrapolation and scaling_method == "Time-aware":
-        #     model_kwargs["scale_factor"] = math.sqrt(w * h / train_args.image_size**2)
-        #     model_kwargs["scale_watershed"] = scaling_watershed
-        #else:
-        model_kwargs["scale_factor"] = 1.0
-        model_kwargs["scale_watershed"] = 1.0
-        
+        if do_extrapolation:
+            model_kwargs["scale_factor"] = math.sqrt(w * h / train_args.image_size**2)
+            model_kwargs["scale_watershed"] = scaling_watershed
+        else:
+            model_kwargs["scale_factor"] = 1.0
+            model_kwargs["scale_watershed"] = 1.0
+
+        model.to(device)
+
         samples = ODE(steps, solver, t_shift).sample(z, model.forward_with_cfg, **model_kwargs)[-1]
+
+        model.to(offload_device)
         samples = samples[:1]
-        print(samples)
+
+        factor = 0.18215
+        samples = samples / factor
 
         return ({'samples': samples},)   
      

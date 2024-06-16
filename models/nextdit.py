@@ -25,6 +25,9 @@ import torch.nn.functional as F
 
 from .components import RMSNorm
 
+import comfy.model_management
+device = comfy.model_management.get_torch_device()
+cast_device = comfy.model_management.get_autocast_device(device)
 
 def modulate(x, scale):
     return x * (1 + scale.unsqueeze(1))
@@ -228,7 +231,7 @@ class Attention(nn.Module):
             Tuple[torch.Tensor, torch.Tensor]: Tuple of modified query tensor
                 and key tensor with rotary embeddings.
         """
-        with torch.cuda.amp.autocast(enabled=False):
+        with torch.amp.autocast(cast_device, enabled=False):
             x = torch.view_as_complex(x_in.float().reshape(*x_in.shape[:-1], -1, 2))
             freqs_cis = freqs_cis.unsqueeze(2)
             x_out = torch.view_as_real(x * freqs_cis).flatten(3)
