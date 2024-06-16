@@ -101,6 +101,7 @@ class LuminaGemmaTextEncode:
     def INPUT_TYPES(s):
         return {"required": {
             "lumina_model": ("LUMINAMODEL", ),
+            "latent": ("LATENT", ),
             "prompt": ("STRING", {"multiline": True, "default": "",}),
             "n_prompt": ("STRING", {"multiline": True, "default": "",}),
             },
@@ -111,16 +112,19 @@ class LuminaGemmaTextEncode:
     FUNCTION = "encode"
     CATEGORY = "LuminaWrapper"
 
-    def encode(self, lumina_model, prompt, n_prompt):
+    def encode(self, lumina_model, latent, prompt, n_prompt):
         device = mm.get_torch_device()
         offload_device = mm.unet_offload_device()
+
         tokenizer = lumina_model['tokenizer']
         text_encoder = lumina_model['text_encoder']
-        
         text_encoder.to(device)
 
+        B = latent["samples"].shape[0]
+        prompts = [prompt] * B + [n_prompt] * B
+
         text_inputs = tokenizer(
-            [prompt] + [n_prompt],
+            prompts,
             padding=True,
             pad_to_multiple_of=8,
             max_length=256,
@@ -184,20 +188,30 @@ class LuminaT2ISampler:
         dtype = lumina_model['dtype']
         
         z = latent["samples"]
-        torch.manual_seed(seed)
-        noise = torch.randn_like(z)
-        z = z + noise
-        z = z.repeat(2, 1, 1, 1)
-        z = z.to(dtype).to(device)
 
-        w = z.shape[3] * 8
-        h = z.shape[2] * 8
+        B = z.shape[0]
+        W = z.shape[3] * 8
+        H = z.shape[2] * 8
+
+        for i in range(B):
+            torch.manual_seed(seed + i)
+            noise = torch.randn_like(z[i])
+            z[i] = z[i] + noise
+        z = z.repeat(2, 1, 1, 1)
+
+        z = z.to(dtype).to(device)
 
         train_args = lumina_model['train_args']
 
+        cap_feats=lumina_embeds['prompt_embeds']
+        cap_mask=lumina_embeds['prompt_masks']
+
+        #cap_feats = cap_feats.repeat(B, 1, 1)
+        #cap_mask = cap_mask.repeat(B, 1)
+
         model_kwargs = dict(
-                        cap_feats=lumina_embeds['prompt_embeds'],
-                        cap_mask=lumina_embeds['prompt_masks'],
+                        cap_feats=cap_feats,
+                        cap_mask=cap_mask,
                         cfg_scale=cfg,
                     )
         if proportional_attn:
@@ -209,7 +223,7 @@ class LuminaT2ISampler:
             model_kwargs["base_seqlen"] = None
 
         if do_extrapolation:
-            model_kwargs["scale_factor"] = math.sqrt(w * h / train_args.image_size**2)
+            model_kwargs["scale_factor"] = math.sqrt(W * H / train_args.image_size**2)
             model_kwargs["scale_watershed"] = scaling_watershed
         else:
             model_kwargs["scale_factor"] = 1.0
@@ -220,7 +234,7 @@ class LuminaT2ISampler:
         samples = ODE(steps, solver, t_shift).sample(z, model.forward_with_cfg, **model_kwargs)[-1]
 
         model.to(offload_device)
-        samples = samples[:1]
+        samples = samples[:len(samples) // 2]
 
         factor = 0.18215
         samples = samples / factor

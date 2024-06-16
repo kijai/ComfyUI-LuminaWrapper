@@ -26,6 +26,10 @@ import torch.nn.functional as F
 from .components import RMSNorm
 
 import comfy.model_management
+
+import comfy.ops
+ops = comfy.ops.manual_cast
+
 device = comfy.model_management.get_torch_device()
 cast_device = comfy.model_management.get_autocast_device(device)
 
@@ -46,13 +50,13 @@ class TimestepEmbedder(nn.Module):
     def __init__(self, hidden_size, frequency_embedding_size=256):
         super().__init__()
         self.mlp = nn.Sequential(
-            nn.Linear(
+            ops.Linear(
                 frequency_embedding_size,
                 hidden_size,
                 bias=True,
             ),
             nn.SiLU(),
-            nn.Linear(
+            ops.Linear(
                 hidden_size,
                 hidden_size,
                 bias=True,
@@ -124,32 +128,32 @@ class Attention(nn.Module):
         self.n_rep = self.n_local_heads // self.n_local_kv_heads
         self.head_dim = dim // n_heads
 
-        self.wq = nn.Linear(
+        self.wq = ops.Linear(
             dim,
             n_heads * self.head_dim,
             bias=False,
         )
         nn.init.xavier_uniform_(self.wq.weight)
-        self.wk = nn.Linear(
+        self.wk = ops.Linear(
             dim,
             self.n_kv_heads * self.head_dim,
             bias=False,
         )
         nn.init.xavier_uniform_(self.wk.weight)
-        self.wv = nn.Linear(
+        self.wv = ops.Linear(
             dim,
             self.n_kv_heads * self.head_dim,
             bias=False,
         )
         nn.init.xavier_uniform_(self.wv.weight)
         if y_dim > 0:
-            self.wk_y = nn.Linear(
+            self.wk_y = ops.Linear(
                 y_dim,
                 self.n_kv_heads * self.head_dim,
                 bias=False,
             )
             nn.init.xavier_uniform_(self.wk_y.weight)
-            self.wv_y = nn.Linear(
+            self.wv_y = ops.Linear(
                 y_dim,
                 self.n_kv_heads * self.head_dim,
                 bias=False,
@@ -157,7 +161,7 @@ class Attention(nn.Module):
             nn.init.xavier_uniform_(self.wv_y.weight)
             self.gate = nn.Parameter(torch.zeros([self.n_local_heads]))
 
-        self.wo = nn.Linear(
+        self.wo = ops.Linear(
             n_heads * self.head_dim,
             dim,
             bias=False,
@@ -414,10 +418,10 @@ class FeedForward(nn.Module):
                 dimension. Defaults to None.
 
         Attributes:
-            w1 (nn.Linear): Linear transformation for the first
+            w1 (ops.Linear): Linear transformation for the first
                 layer.
-            w2 (nn.Linear): Linear transformation for the second layer.
-            w3 (nn.Linear): Linear transformation for the third
+            w2 (ops.Linear): Linear transformation for the second layer.
+            w3 (ops.Linear): Linear transformation for the third
                 layer.
 
         """
@@ -428,19 +432,19 @@ class FeedForward(nn.Module):
             hidden_dim = int(ffn_dim_multiplier * hidden_dim)
         hidden_dim = multiple_of * ((hidden_dim + multiple_of - 1) // multiple_of)
 
-        self.w1 = nn.Linear(
+        self.w1 = ops.Linear(
             dim,
             hidden_dim,
             bias=False,
         )
         nn.init.xavier_uniform_(self.w1.weight)
-        self.w2 = nn.Linear(
+        self.w2 = ops.Linear(
             hidden_dim,
             dim,
             bias=False,
         )
         nn.init.xavier_uniform_(self.w2.weight)
-        self.w3 = nn.Linear(
+        self.w3 = ops.Linear(
             dim,
             hidden_dim,
             bias=False,
@@ -512,7 +516,7 @@ class TransformerBlock(nn.Module):
 
         self.adaLN_modulation = nn.Sequential(
             nn.SiLU(),
-            nn.Linear(
+            ops.Linear(
                 min(dim, 1024),
                 4 * dim,
                 bias=True,
@@ -589,7 +593,7 @@ class FinalLayer(nn.Module):
             elementwise_affine=False,
             eps=1e-6,
         )
-        self.linear = nn.Linear(
+        self.linear = ops.Linear(
             hidden_size,
             patch_size * patch_size * out_channels,
             bias=True,
@@ -599,7 +603,7 @@ class FinalLayer(nn.Module):
 
         self.adaLN_modulation = nn.Sequential(
             nn.SiLU(),
-            nn.Linear(
+            ops.Linear(
                 min(hidden_size, 1024),
                 hidden_size,
                 bias=True,
@@ -643,7 +647,7 @@ class NextDiT(nn.Module):
         self.out_channels = in_channels * 2 if learn_sigma else in_channels
         self.patch_size = patch_size
 
-        self.x_embedder = nn.Linear(
+        self.x_embedder = ops.Linear(
             in_features=patch_size * patch_size * in_channels,
             out_features=dim,
             bias=True,
@@ -654,7 +658,7 @@ class NextDiT(nn.Module):
         self.t_embedder = TimestepEmbedder(min(dim, 1024))
         self.cap_embedder = nn.Sequential(
             nn.LayerNorm(cap_feat_dim),
-            nn.Linear(
+            ops.Linear(
                 cap_feat_dim,
                 min(dim, 1024),
                 bias=True,
