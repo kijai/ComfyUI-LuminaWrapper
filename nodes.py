@@ -45,24 +45,32 @@ class DownloadAndLoadLuminaModel:
         device = mm.get_torch_device()
         dtype = {"bf16": torch.bfloat16, "fp16": torch.float16, "fp32": torch.float32}[precision]
 
-
         model_name = model.rsplit('/', 1)[-1]
         model_path = os.path.join(folder_paths.models_dir, "lumina", model_name)
           
         if not os.path.exists(model_path):
-                print(f"Downloading ControlNet model to: {model_path}")
-                from huggingface_hub import snapshot_download
-                snapshot_download(repo_id=model,
-                                ignore_patterns=['*ema*'],
-                                local_dir=model_path, 
-                                local_dir_use_symlinks=False)
+            print(f"Downloading Lumina model to: {model_path}")
+            from huggingface_hub import snapshot_download
+            snapshot_download(repo_id=model,
+                            ignore_patterns=['*ema*'],
+                            local_dir=model_path)
                   
-        train_args = torch.load(os.path.join(model_path, "model_args.pth"))        
+        train_args = torch.load(os.path.join(model_path, "model_args.pth"))
 
-        tokenizer = AutoTokenizer.from_pretrained("google/gemma-2b", token=hf_token)
+        gemma_path = os.path.join(folder_paths.models_dir, "LLM", "gemma-2b")
+          
+        if not os.path.exists(gemma_path):
+            print(f"Downloading Gemma model to: {gemma_path}")
+            from huggingface_hub import snapshot_download
+            snapshot_download(repo_id="google/gemma-2b",
+                            local_dir=gemma_path,
+                            ignore_patterns=['*gguf*'],
+                            token = hf_token)
+            
+        tokenizer = AutoTokenizer.from_pretrained(gemma_path)
         tokenizer.padding_side = "right"
 
-        text_encoder = AutoModel.from_pretrained("google/gemma-2b", torch_dtype=dtype, device_map=device, token=hf_token).eval()
+        text_encoder = AutoModel.from_pretrained(gemma_path, torch_dtype=dtype, device_map=device).eval()
         cap_feat_dim = text_encoder.config.hidden_size
 
         model = models.__dict__[train_args.model](qk_norm=train_args.qk_norm, cap_feat_dim=cap_feat_dim)
