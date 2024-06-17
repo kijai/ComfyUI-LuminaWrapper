@@ -1,12 +1,14 @@
 # WORK IN PROGRESS
 
-## Currently requires `flash_attn` !
+## Note: Sampling is slow without `flash_attn` !
 
 For Linux users this doesn't mean anything but `pip install flash_attn`. 
 
 However doing same on Windows currently will most likely fail if you do not have a build environment setup, and even if you do it can take an hour to build.
 Alternative for Windows can be pre-built wheels from here, has to match your python environment:
 https://github.com/bdashore3/flash-attention/releases
+
+If flash_attn is not installed, attention code will fallback to torch SDP attention, which is at least twice as slow and memory hungry.
 
 ## Text encoder setup
 
