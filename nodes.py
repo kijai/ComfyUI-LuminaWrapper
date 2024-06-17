@@ -10,7 +10,7 @@ import folder_paths
 script_directory = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(script_directory)
 
-import models
+import lumina_models
 from transport import ODE
 from transformers import AutoModel, AutoTokenizer
 
@@ -55,7 +55,7 @@ class DownloadAndLoadLuminaModel:
                   
         train_args = torch.load(os.path.join(model_path, "model_args.pth"))
 
-        model = models.__dict__[train_args.model](qk_norm=train_args.qk_norm, cap_feat_dim=2048)
+        model = lumina_models.__dict__[train_args.model](qk_norm=train_args.qk_norm, cap_feat_dim=2048)
         model.eval().to(dtype)
 
         sd = load_torch_file(os.path.join(model_path, "consolidated.00-of-01.safetensors"))
