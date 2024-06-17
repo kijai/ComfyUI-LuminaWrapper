@@ -365,6 +365,7 @@ class Attention(nn.Module):
             # end var_len_flash_attn
 
         else:
+            raise Exception("Flash attention (flash_attn) is not available and currently required for Lumina-next -models.")
             output = (
                 F.scaled_dot_product_attention(
                     xq.permute(0, 2, 1, 3),
