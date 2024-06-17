@@ -77,7 +77,6 @@ class DownloadAndLoadGemmaModel:
                     {
                     "default": 'bf16'
                     }),
-            "hf_token": ("STRING", { "default": "" }),
             },
         }
 
@@ -86,26 +85,18 @@ class DownloadAndLoadGemmaModel:
     FUNCTION = "loadmodel"
     CATEGORY = "LuminaWrapper"
 
-    def loadmodel(self, precision, hf_token):
+    def loadmodel(self, precision):
         device = mm.get_torch_device()
         dtype = {"bf16": torch.bfloat16, "fp16": torch.float16, "fp32": torch.float32}[precision]
 
         gemma_path = os.path.join(folder_paths.models_dir, "LLM", "gemma-2b")
           
         if not os.path.exists(gemma_path):
-            import json
-            token_file_path = os.path.join(script_directory,"hf_token.json")
-            with open(token_file_path, 'r') as file:
-                config = json.load(file)
-            hf_key_from_file = config.get("hf_token")
-            if hf_token == "":
-                hf_token = hf_key_from_file
             print(f"Downloading Gemma model to: {gemma_path}")
             from huggingface_hub import snapshot_download
-            snapshot_download(repo_id="google/gemma-2b",
+            snapshot_download(repo_id="alpindale/gemma-2b",
                             local_dir=gemma_path,
                             ignore_patterns=['*gguf*'],
-                            token = hf_token,
                             local_dir_use_symlinks=False)
             
         tokenizer = AutoTokenizer.from_pretrained(gemma_path)
