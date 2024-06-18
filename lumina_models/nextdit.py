@@ -17,8 +17,10 @@ try:
     from flash_attn import flash_attn_varlen_func
     from flash_attn.bert_padding import index_first_axis, pad_input, unpad_input  # noqa
     FLASH_ATTN_AVAILABLE = True
+    print("Flash Attention is available")
 except:
     FLASH_ATTN_AVAILABLE = False
+    print("LuminaWrapper: WARNING! Flash Attention is not available, using much slower torch SDP attention")
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
