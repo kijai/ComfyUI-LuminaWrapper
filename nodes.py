@@ -14,6 +14,14 @@ import lumina_models
 from transport import ODE
 from transformers import AutoModel, AutoTokenizer
 
+from contextlib import nullcontext
+try:
+    from accelerate import init_empty_weights
+    from accelerate.utils import set_module_tensor_to_device
+    is_accelerate_available = True
+except:
+    pass
+
 class DownloadAndLoadLuminaModel:
     @classmethod
     def INPUT_TYPES(s):
@@ -40,6 +48,7 @@ class DownloadAndLoadLuminaModel:
 
     def loadmodel(self, model, precision):
         device = mm.get_torch_device()
+        offload_device = mm.unet_offload_device()
         dtype = {"bf16": torch.bfloat16, "fp16": torch.float16, "fp32": torch.float32}[precision]
 
         model_name = model.rsplit('/', 1)[-1]
@@ -55,11 +64,16 @@ class DownloadAndLoadLuminaModel:
                   
         train_args = torch.load(os.path.join(model_path, "model_args.pth"))
 
-        model = lumina_models.__dict__[train_args.model](qk_norm=train_args.qk_norm, cap_feat_dim=2048)
+        with (init_empty_weights() if is_accelerate_available else nullcontext()):
+            model = lumina_models.__dict__[train_args.model](qk_norm=train_args.qk_norm, cap_feat_dim=2048)
         model.eval().to(dtype)
 
         sd = load_torch_file(os.path.join(model_path, "consolidated.00-of-01.safetensors"))
-        model.load_state_dict(sd, strict=True)
+        if is_accelerate_available:
+            for key in sd:
+                set_module_tensor_to_device(model, key, device=offload_device, value=sd[key])
+        else:
+            model.load_state_dict(sd, strict=True)
         
         lumina_model = {
             'model': model, 
@@ -132,8 +146,8 @@ class LuminaGemmaTextEncode:
     CATEGORY = "LuminaWrapper"
 
     def encode(self, gemma_model, latent, prompt, n_prompt, keep_model_loaded=False):
-        device = mm.text_encoder_device()
-        offload_device = mm.text_encoder_offload_device()
+        device = mm.get_torch_device()
+        offload_device = mm.unet_offload_device()
 
         tokenizer = gemma_model['tokenizer']
         text_encoder = gemma_model['text_encoder']
@@ -160,6 +174,7 @@ class LuminaGemmaTextEncode:
             output_hidden_states=True,
         ).hidden_states[-2]
         if not keep_model_loaded:
+            print("Offloading text encoder...")
             text_encoder.to(offload_device)
         lumina_embeds = {
             'prompt_embeds': prompt_embeds,
