@@ -22,6 +22,14 @@ try:
 except:
     pass
 
+try:
+    from flash_attn import flash_attn_varlen_func
+    FLASH_ATTN_AVAILABLE = True
+    print("Flash Attention is available")
+except:
+    FLASH_ATTN_AVAILABLE = False
+    print("LuminaWrapper: WARNING! Flash Attention is not available, using much slower torch SDP attention")
+
 class DownloadAndLoadLuminaModel:
     @classmethod
     def INPUT_TYPES(s):
@@ -116,7 +124,14 @@ class DownloadAndLoadGemmaModel:
         tokenizer = AutoTokenizer.from_pretrained(gemma_path)
         tokenizer.padding_side = "right"
 
-        text_encoder = AutoModel.from_pretrained(gemma_path, torch_dtype=dtype, device_map=device).eval()
+        attn_implementation = "flash_attention_2" if FLASH_ATTN_AVAILABLE and precision != "fp32" else "sdpa"
+        print(f"Gemma attention mode: {attn_implementation}")
+        text_encoder = AutoModel.from_pretrained(
+            gemma_path, 
+            torch_dtype=dtype, 
+            device_map=device, 
+            attn_implementation=attn_implementation,
+            ).eval()
 
         gemma_model = {
             'tokenizer': tokenizer,
@@ -269,6 +284,7 @@ class LuminaT2ISampler:
         samples = ODE(steps, solver, t_shift).sample(z, model.forward_with_cfg, **model_kwargs)[-1]
 
         if not keep_model_loaded:
+            print("Offloading Lumina model...")
             model.to(offload_device)
             
         samples = samples[:len(samples) // 2]
