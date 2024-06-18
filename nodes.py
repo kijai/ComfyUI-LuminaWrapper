@@ -114,12 +114,16 @@ class DownloadAndLoadGemmaModel:
 class LuminaGemmaTextEncode:
     @classmethod
     def INPUT_TYPES(s):
-        return {"required": {
-            "gemma_model": ("GEMMAODEL", ),
-            "latent": ("LATENT", ),
-            "prompt": ("STRING", {"multiline": True, "default": "",}),
-            "n_prompt": ("STRING", {"multiline": True, "default": "",}),
+        return {
+            "required": {
+                "gemma_model": ("GEMMAODEL", ),
+                "latent": ("LATENT", ),
+                "prompt": ("STRING", {"multiline": True, "default": "",}),
+                "n_prompt": ("STRING", {"multiline": True, "default": "",}),
             },
+            "optional": {
+                "keep_model_loaded": ("BOOLEAN", {"default": False}),
+            }
         }
     
     RETURN_TYPES = ("LUMINATEMBED",)
@@ -127,9 +131,9 @@ class LuminaGemmaTextEncode:
     FUNCTION = "encode"
     CATEGORY = "LuminaWrapper"
 
-    def encode(self, gemma_model, latent, prompt, n_prompt):
-        device = mm.get_torch_device()
-        offload_device = mm.unet_offload_device()
+    def encode(self, gemma_model, latent, prompt, n_prompt, keep_model_loaded=False):
+        device = mm.text_encoder_device()
+        offload_device = mm.text_encoder_offload_device()
 
         tokenizer = gemma_model['tokenizer']
         text_encoder = gemma_model['text_encoder']
@@ -155,8 +159,8 @@ class LuminaGemmaTextEncode:
             attention_mask=prompt_masks.to(device),
             output_hidden_states=True,
         ).hidden_states[-2]
-
-        text_encoder.to(offload_device)
+        if not keep_model_loaded:
+            text_encoder.to(offload_device)
         lumina_embeds = {
             'prompt_embeds': prompt_embeds,
             'prompt_masks': prompt_masks,
@@ -167,7 +171,8 @@ class LuminaGemmaTextEncode:
 class LuminaT2ISampler:
     @classmethod
     def INPUT_TYPES(s):
-        return {"required": {
+        return {
+            "required": {
             "lumina_model": ("LUMINAMODEL", ),
             "lumina_embeds": ("LUMINATEMBED", ),
             "latent": ("LATENT", ),
@@ -179,7 +184,8 @@ class LuminaT2ISampler:
             "scaling_watershed": ("FLOAT", {"default": 0.3, "min": 0.0, "max": 1.0, "step": 0.01}),
             "t_shift": ("INT", {"default": 4, "min": 1, "max": 20, "step": 1}),
             "solver": (
-            [   'euler',
+            [   
+                'euler',
                 'midpoint',
                 'rk4',
             ],
@@ -187,6 +193,9 @@ class LuminaT2ISampler:
             "default": 'midpoint'
              }),
             },
+            "optional": {
+                "keep_model_loaded": ("BOOLEAN", {"default": False}),
+            }
         }
     
     RETURN_TYPES = ("LATENT",)
@@ -195,7 +204,7 @@ class LuminaT2ISampler:
     CATEGORY = "LuminaWrapper"
 
     def process(self, lumina_model, lumina_embeds, latent, seed, steps, cfg, proportional_attn, solver, t_shift, 
-                do_extrapolation, scaling_watershed):
+                do_extrapolation, scaling_watershed, keep_model_loaded=False):
         device = mm.get_torch_device()
         offload_device = mm.unet_offload_device()
 
@@ -244,7 +253,9 @@ class LuminaT2ISampler:
 
         samples = ODE(steps, solver, t_shift).sample(z, model.forward_with_cfg, **model_kwargs)[-1]
 
-        model.to(offload_device)
+        if not keep_model_loaded:
+            model.to(offload_device)
+            
         samples = samples[:len(samples) // 2]
 
         vae_scaling_factor = 0.13025
