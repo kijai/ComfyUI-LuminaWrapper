@@ -1,3 +1,4 @@
 torchdiffeq
 accelerate
 tqdm
+transformers>=4.38.0
