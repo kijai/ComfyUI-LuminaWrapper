@@ -223,8 +223,8 @@ class LuminaTextAreaAppend:
             "required": {
                 
                 "prompt": ("STRING", {"multiline": True, "default": "",}),
-                "row": ("INT", {"default": 1, "min": 1, "max": 4, "step": 1}),
-                "column": ("INT", {"default": 1, "min": 1, "max": 4, "step": 1}),
+                "row": ("INT", {"default": 1, "min": 1, "max": 8, "step": 1}),
+                "column": ("INT", {"default": 1, "min": 1, "max": 8, "step": 1}),
             },
             "optional": {
                 "prev_prompt": ("LUMINAAREAPROMPT", ),
