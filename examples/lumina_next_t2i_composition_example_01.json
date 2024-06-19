@@ -1,0 +1,619 @@
+{
+  "last_node_id": 24,
+  "last_link_id": 41,
+  "nodes": [
+    {
+      "id": 2,
+      "type": "DownloadAndLoadLuminaModel",
+      "pos": [
+        -311,
+        140
+      ],
+      "size": {
+        "0": 303.01300048828125,
+        "1": 82
+      },
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "outputs": [
+        {
+          "name": "lumina_model",
+          "type": "LUMINAMODEL",
+          "links": [
+            28
+          ],
+          "shape": 3
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "DownloadAndLoadLuminaModel"
+      },
+      "widgets_values": [
+        "Alpha-VLLM/Lumina-Next-SFT",
+        "bf16"
+      ]
+    },
+    {
+      "id": 15,
+      "type": "DownloadAndLoadGemmaModel",
+      "pos": [
+        -317,
+        271
+      ],
+      "size": {
+        "0": 315,
+        "1": 82
+      },
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "outputs": [
+        {
+          "name": "gemma_model",
+          "type": "GEMMAODEL",
+          "links": [
+            35
+          ],
+          "shape": 3
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "DownloadAndLoadGemmaModel"
+      },
+      "widgets_values": [
+        "bf16"
+      ]
+    },
+    {
+      "id": 9,
+      "type": "VAEDecode",
+      "pos": [
+        830,
+        149
+      ],
+      "size": {
+        "0": 210,
+        "1": 46
+      },
+      "flags": {},
+      "order": 11,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "samples",
+          "type": "LATENT",
+          "link": 33
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 13,
+          "slot_index": 1
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            14
+          ],
+          "shape": 3,
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "VAEDecode"
+      }
+    },
+    {
+      "id": 10,
+      "type": "VAELoader",
+      "pos": [
+        817,
+        241
+      ],
+      "size": {
+        "0": 315,
+        "1": 58
+      },
+      "flags": {
+        "collapsed": false
+      },
+      "order": 2,
+      "mode": 0,
+      "outputs": [
+        {
+          "name": "VAE",
+          "type": "VAE",
+          "links": [
+            13
+          ],
+          "shape": 3
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "VAELoader"
+      },
+      "widgets_values": [
+        "sdxl_vae.safetensors"
+      ]
+    },
+    {
+      "id": 6,
+      "type": "EmptyLatentImage",
+      "pos": [
+        -331,
+        436
+      ],
+      "size": {
+        "0": 315,
+        "1": 106
+      },
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            31
+          ],
+          "shape": 3,
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "EmptyLatentImage"
+      },
+      "widgets_values": [
+        2048,
+        512,
+        1
+      ]
+    },
+    {
+      "id": 17,
+      "type": "LuminaT2ISampler",
+      "pos": [
+        488,
+        143
+      ],
+      "size": {
+        "0": 315,
+        "1": 314
+      },
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "lumina_model",
+          "type": "LUMINAMODEL",
+          "link": 28
+        },
+        {
+          "name": "lumina_embeds",
+          "type": "LUMINATEMBED",
+          "link": 34
+        },
+        {
+          "name": "latent",
+          "type": "LATENT",
+          "link": 32
+        }
+      ],
+      "outputs": [
+        {
+          "name": "samples",
+          "type": "LATENT",
+          "links": [
+            33
+          ],
+          "shape": 3,
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LuminaT2ISampler"
+      },
+      "widgets_values": [
+        127,
+        "fixed",
+        30,
+        5,
+        false,
+        false,
+        0.3,
+        6,
+        "midpoint",
+        true
+      ]
+    },
+    {
+      "id": 11,
+      "type": "PreviewImage",
+      "pos": [
+        -300,
+        784
+      ],
+      "size": [
+        1392.8533270941648,
+        376.1636668147139
+      ],
+      "flags": {},
+      "order": 12,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 14
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "PreviewImage"
+      }
+    },
+    {
+      "id": 21,
+      "type": "LuminaTextAreaAppend",
+      "pos": [
+        -247,
+        597
+      ],
+      "size": [
+        274.01493615024333,
+        144.12341662973722
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "prev_prompt",
+          "type": "LUMINAAREAPROMPT",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "lumina_area_prompt",
+          "type": "LUMINAAREAPROMPT",
+          "links": [
+            37
+          ],
+          "shape": 3,
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LuminaTextAreaAppend"
+      },
+      "widgets_values": [
+        "waterfall",
+        1,
+        1
+      ]
+    },
+    {
+      "id": 22,
+      "type": "LuminaTextAreaAppend",
+      "pos": [
+        98,
+        598
+      ],
+      "size": [
+        253.60000610351562,
+        143.32892002240646
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "prev_prompt",
+          "type": "LUMINAAREAPROMPT",
+          "link": 37
+        }
+      ],
+      "outputs": [
+        {
+          "name": "lumina_area_prompt",
+          "type": "LUMINAAREAPROMPT",
+          "links": [
+            38
+          ],
+          "shape": 3,
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LuminaTextAreaAppend"
+      },
+      "widgets_values": [
+        "river",
+        1,
+        2
+      ]
+    },
+    {
+      "id": 24,
+      "type": "LuminaTextAreaAppend",
+      "pos": [
+        739,
+        590
+      ],
+      "size": {
+        "0": 253.60000610351562,
+        "1": 145.5343475341797
+      },
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "prev_prompt",
+          "type": "LUMINAAREAPROMPT",
+          "link": 40
+        }
+      ],
+      "outputs": [
+        {
+          "name": "lumina_area_prompt",
+          "type": "LUMINAAREAPROMPT",
+          "links": [
+            41
+          ],
+          "shape": 3,
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LuminaTextAreaAppend"
+      },
+      "widgets_values": [
+        "red maple trees",
+        1,
+        4
+      ]
+    },
+    {
+      "id": 23,
+      "type": "LuminaTextAreaAppend",
+      "pos": [
+        411,
+        594
+      ],
+      "size": [
+        253.60000610351562,
+        145.53435067229907
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "prev_prompt",
+          "type": "LUMINAAREAPROMPT",
+          "link": 38
+        }
+      ],
+      "outputs": [
+        {
+          "name": "lumina_area_prompt",
+          "type": "LUMINAAREAPROMPT",
+          "links": [
+            40
+          ],
+          "shape": 3,
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LuminaTextAreaAppend"
+      },
+      "widgets_values": [
+        "majestic stag",
+        1,
+        3
+      ]
+    },
+    {
+      "id": 20,
+      "type": "LuminaGemmaTextEncodeArea",
+      "pos": [
+        43,
+        222
+      ],
+      "size": {
+        "0": 405.5999755859375,
+        "1": 200
+      },
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "gemma_model",
+          "type": "GEMMAODEL",
+          "link": 35,
+          "slot_index": 0
+        },
+        {
+          "name": "lumina_area_prompt",
+          "type": "LUMINAAREAPROMPT",
+          "link": 41,
+          "slot_index": 1
+        }
+      ],
+      "outputs": [
+        {
+          "name": "lumina_embeds",
+          "type": "LUMINATEMBED",
+          "links": [
+            34
+          ],
+          "shape": 3,
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LuminaGemmaTextEncodeArea"
+      },
+      "widgets_values": [
+        "highly detailed high quality digital fantasy art illustration with cinematic lighting",
+        "bad quality, unaesthetic, nsfw",
+        true
+      ]
+    },
+    {
+      "id": 19,
+      "type": "Reroute",
+      "pos": [
+        342,
+        437
+      ],
+      "size": [
+        90.4,
+        26
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "",
+          "type": "*",
+          "link": 31
+        }
+      ],
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            32
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "showOutputText": true,
+        "horizontal": false
+      }
+    }
+  ],
+  "links": [
+    [
+      13,
+      10,
+      0,
+      9,
+      1,
+      "VAE"
+    ],
+    [
+      14,
+      9,
+      0,
+      11,
+      0,
+      "IMAGE"
+    ],
+    [
+      28,
+      2,
+      0,
+      17,
+      0,
+      "LUMINAMODEL"
+    ],
+    [
+      31,
+      6,
+      0,
+      19,
+      0,
+      "*"
+    ],
+    [
+      32,
+      19,
+      0,
+      17,
+      2,
+      "LATENT"
+    ],
+    [
+      33,
+      17,
+      0,
+      9,
+      0,
+      "LATENT"
+    ],
+    [
+      34,
+      20,
+      0,
+      17,
+      1,
+      "LUMINATEMBED"
+    ],
+    [
+      35,
+      15,
+      0,
+      20,
+      0,
+      "GEMMAODEL"
+    ],
+    [
+      37,
+      21,
+      0,
+      22,
+      0,
+      "LUMINAAREAPROMPT"
+    ],
+    [
+      38,
+      22,
+      0,
+      23,
+      0,
+      "LUMINAAREAPROMPT"
+    ],
+    [
+      40,
+      23,
+      0,
+      24,
+      0,
+      "LUMINAAREAPROMPT"
+    ],
+    [
+      41,
+      24,
+      0,
+      20,
+      1,
+      "LUMINAAREAPROMPT"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 1.015255979947714,
+      "offset": [
+        630.0291517726646,
+        -79.89796117514369
+      ]
+    }
+  },
+  "version": 0.4
+}

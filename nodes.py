@@ -2,6 +2,7 @@ import torch
 import os
 import sys
 import math
+import gc
 
 import comfy.model_management as mm
 from comfy.utils import ProgressBar, load_torch_file
@@ -188,12 +189,114 @@ class LuminaGemmaTextEncode:
             attention_mask=prompt_masks.to(device),
             output_hidden_states=True,
         ).hidden_states[-2]
+
         if not keep_model_loaded:
             print("Offloading text encoder...")
             text_encoder.to(offload_device)
         lumina_embeds = {
             'prompt_embeds': prompt_embeds,
             'prompt_masks': prompt_masks,
+        }
+        
+        return (lumina_embeds,)
+
+class LuminaTextAreaAppend:
+    @classmethod
+    def INPUT_TYPES(s):
+        return {
+            "required": {
+                
+                "prompt": ("STRING", {"multiline": True, "default": "",}),
+                "row": ("INT", {"default": 1, "min": 1, "max": 4, "step": 1}),
+                "column": ("INT", {"default": 1, "min": 1, "max": 4, "step": 1}),
+            },
+            "optional": {
+                "prev_prompt": ("LUMINAAREAPROMPT", ),
+            }
+        }
+    
+    RETURN_TYPES = ("LUMINAAREAPROMPT",)
+    RETURN_NAMES =("lumina_area_prompt",)
+    FUNCTION = "process"
+    CATEGORY = "LuminaWrapper"
+
+    def process(self, prompt, row, column, prev_prompt=None):
+        prompt_entry = {
+            'prompt': prompt,
+            'row': row,
+            'column': column
+        }
+
+        if prev_prompt is not None:
+            prompt_list = prev_prompt + [prompt_entry]
+        else:
+            prompt_list = [prompt_entry]
+
+        return (prompt_list,)
+        
+class LuminaGemmaTextEncodeArea:
+    @classmethod
+    def INPUT_TYPES(s):
+        return {
+            "required": {
+                "gemma_model": ("GEMMAODEL", ),
+                "lumina_area_prompt": ("LUMINAAREAPROMPT",),
+                "append_prompt": ("STRING", {"multiline": True, "default": "",}),
+                "n_prompt": ("STRING", {"multiline": True, "default": "",}),
+                
+            },
+            "optional": {
+                "keep_model_loaded": ("BOOLEAN", {"default": False}),
+            }
+        }
+    
+    RETURN_TYPES = ("LUMINATEMBED",)
+    RETURN_NAMES =("lumina_embeds",)
+    FUNCTION = "encode"
+    CATEGORY = "LuminaWrapper"
+
+    def encode(self, gemma_model, lumina_area_prompt, append_prompt, n_prompt, keep_model_loaded=False):
+        device = mm.get_torch_device()
+        offload_device = mm.unet_offload_device()
+
+        tokenizer = gemma_model['tokenizer']
+        text_encoder = gemma_model['text_encoder']
+        text_encoder.to(device)
+
+        prompt_list = [entry['prompt'] + "," + append_prompt for entry in lumina_area_prompt]
+       
+
+        global_prompt = " ".join(prompt_list)
+        #global_prompt = global_prompt + " " + append_prompt
+        prompts = prompt_list + [n_prompt] + [global_prompt]
+        print("prompts: ", prompts)
+
+        text_inputs = tokenizer(
+            prompts,
+            padding=True,
+            pad_to_multiple_of=8,
+            max_length=256,
+            truncation=True,
+            return_tensors="pt",
+        )
+
+        text_input_ids = text_inputs.input_ids
+        prompt_masks = text_inputs.attention_mask.to(device)
+
+        prompt_embeds = text_encoder(
+            input_ids=text_input_ids.to(device),
+            attention_mask=prompt_masks.to(device),
+            output_hidden_states=True,
+        ).hidden_states[-2]
+        if not keep_model_loaded:
+            print("Offloading text encoder...")
+            text_encoder.to(offload_device)
+            mm.soft_empty_cache()
+            gc.collect()
+        lumina_embeds = {
+            'prompt_embeds': prompt_embeds,
+            'prompt_masks': prompt_masks,
+            'lumina_area_prompt': lumina_area_prompt
         }
         
         return (lumina_embeds,)
@@ -251,8 +354,11 @@ class LuminaT2ISampler:
             torch.manual_seed(seed + i)
             noise = torch.randn_like(z[i])
             z[i] = z[i] + noise
-        z = z.repeat(2, 1, 1, 1)
+        
+        #torch.random.manual_seed(int(seed))
+        #z = torch.randn([1, 4, z.shape[2], z.shape[3]], device=device)
 
+        z = z.repeat(2, 1, 1, 1)
         z = z.to(dtype).to(device)
 
         train_args = lumina_model['train_args']
@@ -260,10 +366,28 @@ class LuminaT2ISampler:
         cap_feats=lumina_embeds['prompt_embeds']
         cap_mask=lumina_embeds['prompt_masks']
 
+        #calculate splits from prompt dict
+        if 'lumina_area_prompt' in lumina_embeds:
+            unique_rows = {entry['row'] for entry in lumina_embeds['lumina_area_prompt']}
+            unique_columns = {entry['column'] for entry in lumina_embeds['lumina_area_prompt']}
+
+            horizontal_splits = len(unique_columns)
+            vertical_splits = len(unique_rows)
+            print(f"Horizontal splits: {horizontal_splits} Vertical splits: {vertical_splits}")
+            is_split=True
+        else:
+            horizontal_splits = 1
+            vertical_splits = 1
+            is_split=False
+
         model_kwargs = dict(
-                        cap_feats=cap_feats,
-                        cap_mask=cap_mask,
+                        cap_feats=cap_feats[:-1] if is_split else cap_feats,
+                        cap_mask=cap_mask[:-1] if is_split else cap_mask,
+                        global_cap_feats=cap_feats[-1:] if is_split else cap_feats,
+                        global_cap_mask=cap_mask[-1:] if is_split else cap_mask,
                         cfg_scale=cfg,
+                        h_split_num=int(vertical_splits),
+                        w_split_num=int(horizontal_splits),
                     )
         if proportional_attn:
             model_kwargs["proportional_attn"] = True
@@ -279,6 +403,7 @@ class LuminaT2ISampler:
             model_kwargs["scale_factor"] = 1.0
             model_kwargs["scale_watershed"] = 1.0
 
+        #inference
         model.to(device)
 
         samples = ODE(steps, solver, t_shift).sample(z, model.forward_with_cfg, **model_kwargs)[-1]
@@ -286,10 +411,12 @@ class LuminaT2ISampler:
         if not keep_model_loaded:
             print("Offloading Lumina model...")
             model.to(offload_device)
+            mm.soft_empty_cache()
+            gc.collect()
             
         samples = samples[:len(samples) // 2]
 
-        vae_scaling_factor = 0.13025
+        vae_scaling_factor = 0.13025 #SDXL scaling factor
         samples = samples / vae_scaling_factor
 
         return ({'samples': samples},)   
@@ -298,11 +425,15 @@ NODE_CLASS_MAPPINGS = {
     "LuminaT2ISampler": LuminaT2ISampler,
     "DownloadAndLoadLuminaModel": DownloadAndLoadLuminaModel,
     "DownloadAndLoadGemmaModel": DownloadAndLoadGemmaModel,
-    "LuminaGemmaTextEncode": LuminaGemmaTextEncode
+    "LuminaGemmaTextEncode": LuminaGemmaTextEncode,
+    "LuminaGemmaTextEncodeArea": LuminaGemmaTextEncodeArea,
+    "LuminaTextAreaAppend": LuminaTextAreaAppend
 }
 NODE_DISPLAY_NAME_MAPPINGS = {
     "LuminaT2ISampler": "Lumina T2I Sampler",
     "DownloadAndLoadLuminaModel": "DownloadAndLoadLuminaModel",
     "DownloadAndLoadGemmaModel": "DownloadAndLoadGemmaModel",
-    "LuminaGemmaTextEncode": "Lumina Gemma Text Encode"
+    "LuminaGemmaTextEncode": "Lumina Gemma Text Encode",
+    "LuminaGemmaTextEncodeArea": "Lumina Gemma Text Encode Area",
+    "LuminaTextAreaAppend": "Lumina Text Area Append"
 }

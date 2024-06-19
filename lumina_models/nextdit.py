@@ -300,6 +300,7 @@ class Attention(nn.Module):
         freqs_cis: torch.Tensor,
         y: torch.Tensor,
         y_mask: torch.Tensor,
+        region_mask: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         """
 
@@ -381,20 +382,49 @@ class Attention(nn.Module):
             )
 
         if hasattr(self, "wk_y"):
-            yk = self.ky_norm(self.wk_y(y)).view(bsz, -1, self.n_local_kv_heads, self.head_dim)
-            yv = self.wv_y(y).view(bsz, -1, self.n_local_kv_heads, self.head_dim)
-            n_rep = self.n_local_heads // self.n_local_kv_heads
-            if n_rep >= 1:
-                yk = yk.unsqueeze(3).repeat(1, 1, 1, n_rep, 1).flatten(2, 3)
-                yv = yv.unsqueeze(3).repeat(1, 1, 1, n_rep, 1).flatten(2, 3)
-            output_y = F.scaled_dot_product_attention(
-                xq.permute(0, 2, 1, 3),
-                yk.permute(0, 2, 1, 3),
-                yv.permute(0, 2, 1, 3),
-                y_mask.view(bsz, 1, 1, -1).expand(bsz, self.n_local_heads, seqlen, -1),
-            ).permute(0, 2, 1, 3)
-            output_y = output_y * self.gate.tanh().view(1, 1, -1, 1)
-            output = output + output_y
+            if x.shape[0] < 3:
+                num_y = y.shape[0]
+                xq = torch.cat([xq[0].unsqueeze(0).repeat(num_y - 1, 1, 1, 1), xq[-1].unsqueeze(0)], dim=0)
+                yk = self.ky_norm(self.wk_y(y)).view(num_y, -1, self.n_local_kv_heads, self.head_dim)
+                yv = self.wv_y(y).view(num_y, -1, self.n_local_kv_heads, self.head_dim)
+                y_mask_in = y_mask.view(num_y, 1, 1, -1).repeat(1, self.n_local_heads, seqlen, 1)
+                if region_mask is not None:
+                    region_mask_in = region_mask.view(num_y, 1, seqlen, 1).repeat(
+                        1, self.n_local_heads, 1, y_mask_in.shape[-1]
+                    )
+                    y_mask_in = y_mask_in & region_mask_in
+                n_rep = self.n_local_heads // self.n_local_kv_heads
+                if n_rep >= 1:
+                    yk = yk.unsqueeze(3).repeat(1, 1, 1, n_rep, 1).flatten(2, 3)
+                    yv = yv.unsqueeze(3).repeat(1, 1, 1, n_rep, 1).flatten(2, 3)
+                output_y = F.scaled_dot_product_attention(
+                    xq.permute(0, 2, 1, 3),
+                    yk.permute(0, 2, 1, 3),
+                    yv.permute(0, 2, 1, 3),
+                    y_mask_in,
+                ).permute(0, 2, 1, 3)
+                output_y = torch.nan_to_num(output_y)
+                output_y = output_y * self.gate.tanh().view(1, 1, -1, 1)
+                output_y_cond = torch.sum(output_y[:-1], dim=0, keepdim=True)
+                output_y_uncond = torch.sum(output_y[-1:], dim=0, keepdim=True)
+                output_y = torch.cat([output_y_cond, output_y_uncond], dim=0)
+                output = output + output_y
+            else:
+                # Original behavior
+                yk = self.ky_norm(self.wk_y(y)).view(bsz, -1, self.n_local_kv_heads, self.head_dim)
+                yv = self.wv_y(y).view(bsz, -1, self.n_local_kv_heads, self.head_dim)
+                n_rep = self.n_local_heads // self.n_local_kv_heads
+                if n_rep >= 1:
+                    yk = yk.unsqueeze(3).repeat(1, 1, 1, n_rep, 1).flatten(2, 3)
+                    yv = yv.unsqueeze(3).repeat(1, 1, 1, n_rep, 1).flatten(2, 3)
+                output_y = F.scaled_dot_product_attention(
+                    xq.permute(0, 2, 1, 3),
+                    yk.permute(0, 2, 1, 3),
+                    yv.permute(0, 2, 1, 3),
+                    y_mask.view(bsz, 1, 1, -1).expand(bsz, self.n_local_heads, seqlen, -1),
+                ).permute(0, 2, 1, 3)
+                output_y = output_y * self.gate.tanh().view(1, 1, -1, 1)
+                output = output + output_y
 
         output = output.flatten(-2)
 
@@ -538,6 +568,7 @@ class TransformerBlock(nn.Module):
         y: torch.Tensor,
         y_mask: torch.Tensor,
         adaln_input: Optional[torch.Tensor] = None,
+        region_mask: Optional[torch.Tensor] = None,
     ):
         """
         Perform a forward pass through the TransformerBlock.
@@ -561,6 +592,7 @@ class TransformerBlock(nn.Module):
                     freqs_cis,
                     self.attention_y_norm(y),
                     y_mask,
+                    region_mask,
                 )
             )
             x = x + gate_mlp.unsqueeze(1).tanh() * self.ffn_norm2(
@@ -577,6 +609,7 @@ class TransformerBlock(nn.Module):
                     freqs_cis,
                     self.attention_y_norm(y),
                     y_mask,
+                    region_mask,
                 )
             )
             x = x + self.ffn_norm2(self.feed_forward(self.ffn_norm1(x)))
@@ -793,26 +826,46 @@ class NextDiT(nn.Module):
             freqs_cis = torch.stack(padded_freqs_cis, dim=0)
             return x_embed, mask, img_size, freqs_cis
 
-    def forward(self, x, t, cap_feats, cap_mask):
+    def forward(
+        self, x, t, cap_feats, cap_mask, global_cap_feats=None, global_cap_mask=None, h_split_num=1, w_split_num=1
+    ):
         """
         Forward pass of NextDiT.
         t: (N,) tensor of diffusion timesteps
         y: (N,) tensor of class labels
         """
+        B, C, H, W = x.size()
         x_is_tensor = isinstance(x, torch.Tensor)
         x, mask, img_size, freqs_cis = self.patchify_and_embed(x)
         freqs_cis = freqs_cis.to(x.device)
 
         t = self.t_embedder(t)  # (N, D)
-        cap_mask_float = cap_mask.float().unsqueeze(-1)
-        cap_feats_pool = (cap_feats * cap_mask_float).sum(dim=1) / cap_mask_float.sum(dim=1)
+        cap_mask_float = global_cap_mask.float().unsqueeze(-1)
+        cap_feats_pool = (global_cap_feats * cap_mask_float).sum(dim=1) / cap_mask_float.sum(dim=1)
         cap_feats_pool = cap_feats_pool.to(cap_feats)
         cap_emb = self.cap_embedder(cap_feats_pool)
         adaln_input = t + cap_emb
 
+        region_mask = torch.zeros(
+            cap_feats.shape[0], H // self.patch_size, W // self.patch_size, dtype=torch.float, device=x.device
+        )
+        h_patch_size, w_patch_size = H // h_split_num // self.patch_size, W // w_split_num // self.patch_size
+        for h_split in range(h_split_num):
+            for w_split in range(w_split_num):
+                region_id = (h_split + 1) * (w_split + 1) - 1
+                region_mask[
+                    region_id,
+                    h_patch_size * h_split : h_patch_size * (h_split + 1),
+                    w_patch_size * w_split : w_patch_size * (w_split + 1),
+                ] = 1
+        region_mask[-1, :, :] = 1
+
+        region_mask = region_mask.flatten(1, 2)
+        region_mask = region_mask > 0.5
+
         cap_mask = cap_mask.bool()
         for layer in self.layers:
-            x = layer(x, mask, freqs_cis, cap_feats, cap_mask, adaln_input=adaln_input)
+            x = layer(x, mask, freqs_cis, cap_feats, cap_mask, adaln_input=adaln_input, region_mask=region_mask)
 
         x = self.final_layer(x, adaln_input)
         x = self.unpatchify(x, img_size, return_tensor=x_is_tensor)
@@ -834,6 +887,10 @@ class NextDiT(nn.Module):
         scale_watershed=1.0,
         base_seqlen: Optional[int] = None,
         proportional_attn: bool = False,
+        global_cap_feats=None,
+        global_cap_mask=None,
+        h_split_num=1,
+        w_split_num=1
     ):
         """
         Forward pass of NextDiT, but also batches the unconditional forward pass
@@ -860,7 +917,7 @@ class NextDiT(nn.Module):
 
         half = x[: len(x) // 2]
         combined = torch.cat([half, half], dim=0)
-        model_out = self(combined, t, cap_feats, cap_mask)
+        model_out = self(combined, t, cap_feats, cap_mask, global_cap_feats, global_cap_mask, h_split_num, w_split_num)
         # For exact reproducibility reasons, we apply classifier-free guidance on only
         # three channels by default. The standard approach to cfg applies it to all channels.
         # This can be done by uncommenting the following line and commenting-out the line following that.
