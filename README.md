@@ -24,7 +24,22 @@ To download it you need to consent to their terms. This means having Hugginface 
 
 Either download it yourself to `ComfyUI/models/LLM/gemma-2b` (don't need the gguf -file) or let the node autodownload it.
 
+## Lumina models
+
+The nodes support the Lumina-next text to image models:
+
+https://huggingface.co/Alpha-VLLM/Lumina-Next-SFT
+
+https://huggingface.co/Alpha-VLLM/Lumina-Next-T2I
+
+They are automatically downloaded to `ComfyUI/models/lumina`
+
+# Examples
+The workflows are including in the examples -folder
 ![image](https://github.com/kijai/ComfyUI-LuminaWrapper/assets/40791699/d1efae46-590a-441e-ad42-9590062b3837)
 
+![lumina_composition_example](https://github.com/kijai/ComfyUI-LuminaWrapper/assets/40791699/99603330-903a-444f-a23f-3ac0f332e73e)
+
 Original repo:
+
 https://github.com/Alpha-VLLM/Lumina-T2X
