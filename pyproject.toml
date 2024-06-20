@@ -2,7 +2,7 @@
 name = "comfyui-luminawrapper"
 description = "ComfyUI wrapper nodes for Lumina models"
 version = "1.0.0"
-license = "LICENSE"
+license = "MIT"
 dependencies = ["torchdiffeq", "accelerate", "tqdm", "transformers>=4.38.0"]
 
 [project.urls]
@@ -10,6 +10,6 @@ Repository = "https://github.com/kijai/ComfyUI-LuminaWrapper"
 #  Used by Comfy Registry https://comfyregistry.org
 
 [tool.comfy]
-PublisherId = ""
+PublisherId = "kijai"
 DisplayName = "ComfyUI-LuminaWrapper"
 Icon = ""
