@@ -203,6 +203,8 @@ class LuminaGemmaTextEncode:
         if not keep_model_loaded:
             print("Offloading text encoder...")
             text_encoder.to(offload_device)
+            mm.soft_empty_cache()
+            gc.collect()
         lumina_embeds = {
             'prompt_embeds': prompt_embeds,
             'prompt_masks': prompt_masks,
