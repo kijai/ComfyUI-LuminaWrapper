@@ -81,9 +81,11 @@ class DownloadAndLoadLuminaModel:
         sd = load_torch_file(safetensors_path)
         if is_accelerate_available:
             for key in sd:
-                set_module_tensor_to_device(model, key, device=offload_device, value=sd[key])
+                set_module_tensor_to_device(model, key, dtype=dtype, device=offload_device, value=sd[key])
         else:
             model.load_state_dict(sd, strict=True)
+        del sd
+        mm.soft_empty_cache()
         
         lumina_model = {
             'model': model, 
@@ -108,7 +110,6 @@ class DownloadAndLoadGemmaModel:
                     "default": 'text_encode'
                     }),
             }
-
         }
 
     RETURN_TYPES = ("GEMMAODEL",)
@@ -174,6 +175,8 @@ class LuminaGemmaTextEncode:
     def encode(self, gemma_model, latent, prompt, n_prompt, keep_model_loaded=False):
         device = mm.get_torch_device()
         offload_device = mm.unet_offload_device()
+        mm.unload_all_models()
+        mm.soft_empty_cache()
 
         tokenizer = gemma_model['tokenizer']
         text_encoder = gemma_model['text_encoder']
@@ -276,10 +279,7 @@ class LuminaGemmaTextEncodeArea:
         text_encoder.to(device)
 
         prompt_list = [entry['prompt'] + "," + append_prompt for entry in lumina_area_prompt]
-       
-
         global_prompt = " ".join(prompt_list)
-        #global_prompt = global_prompt + " " + append_prompt
         prompts = prompt_list + [n_prompt] + [global_prompt]
         print("prompts: ", prompts)
 
@@ -336,6 +336,9 @@ class GemmaSampler:
         device = mm.get_torch_device()
         offload_device = mm.unet_offload_device()
 
+        mm.unload_all_models()
+        mm.soft_empty_cache()
+
         tokenizer = gemma_model['tokenizer']
         model = gemma_model['text_encoder']
         model.to(device)
@@ -358,6 +361,8 @@ class GemmaSampler:
         if not keep_model_loaded:
             print("Offloading text encoder...")
             model.to(offload_device)
+            mm.soft_empty_cache()
+            gc.collect()
         
         return (decoded,)
 
