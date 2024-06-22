@@ -35,38 +35,6 @@
       ]
     },
     {
-      "id": 15,
-      "type": "DownloadAndLoadGemmaModel",
-      "pos": [
-        -317,
-        271
-      ],
-      "size": {
-        "0": 315,
-        "1": 82
-      },
-      "flags": {},
-      "order": 1,
-      "mode": 0,
-      "outputs": [
-        {
-          "name": "gemma_model",
-          "type": "GEMMAODEL",
-          "links": [
-            25
-          ],
-          "shape": 3
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "DownloadAndLoadGemmaModel"
-      },
-      "widgets_values": [
-        "bf16",
-        ""
-      ]
-    },
-    {
       "id": 13,
       "type": "LuminaGemmaTextEncode",
       "pos": [
@@ -78,7 +46,7 @@
         "1": 200
       },
       "flags": {},
-      "order": 4,
+      "order": 5,
       "mode": 0,
       "inputs": [
         {
@@ -109,7 +77,8 @@
       },
       "widgets_values": [
         "high quality photograph of a woman laying on grass, she's wearing a blue dress, top down view, her hair is on fire",
-        "bad quality, drawing, illustration, nsfw"
+        "bad quality, drawing, illustration, nsfw",
+        false
       ]
     },
     {
@@ -124,7 +93,7 @@
         26
       ],
       "flags": {},
-      "order": 5,
+      "order": 4,
       "mode": 0,
       "inputs": [
         {
@@ -160,7 +129,7 @@
         "1": 106
       },
       "flags": {},
-      "order": 3,
+      "order": 1,
       "mode": 0,
       "outputs": [
         {
@@ -192,7 +161,7 @@
       ],
       "size": {
         "0": 315,
-        "1": 290
+        "1": 314
       },
       "flags": {},
       "order": 6,
@@ -237,7 +206,8 @@
         false,
         0.3,
         4,
-        "midpoint"
+        "midpoint",
+        false
       ]
     },
     {
@@ -320,10 +290,10 @@
         839,
         233
       ],
-      "size": [
-        459.10728677163297,
-        714.375346212549
-      ],
+      "size": {
+        "0": 459.1072998046875,
+        "1": 714.3753662109375
+      },
       "flags": {},
       "order": 8,
       "mode": 0,
@@ -337,6 +307,38 @@
       "properties": {
         "Node name for S&R": "PreviewImage"
       }
+    },
+    {
+      "id": 15,
+      "type": "DownloadAndLoadGemmaModel",
+      "pos": [
+        -317,
+        271
+      ],
+      "size": {
+        "0": 315,
+        "1": 82
+      },
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "outputs": [
+        {
+          "name": "gemma_model",
+          "type": "GEMMAODEL",
+          "links": [
+            25
+          ],
+          "shape": 3
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "DownloadAndLoadGemmaModel"
+      },
+      "widgets_values": [
+        "bf16",
+        "text_encode"
+      ]
     }
   ],
   "links": [

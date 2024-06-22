@@ -62,8 +62,9 @@ class DownloadAndLoadLuminaModel:
 
         model_name = model.rsplit('/', 1)[-1]
         model_path = os.path.join(folder_paths.models_dir, "lumina", model_name)
+        safetensors_path = os.path.join(model_path, "consolidated.00-of-01.safetensors")
         
-        if not os.path.exists(model_path):
+        if not os.path.exists(safetensors_path):
             print(f"Downloading Lumina model to: {model_path}")
             from huggingface_hub import snapshot_download
             snapshot_download(repo_id=model,
@@ -77,7 +78,7 @@ class DownloadAndLoadLuminaModel:
             model = lumina_models.__dict__[train_args.model](qk_norm=train_args.qk_norm, cap_feat_dim=2048)
         model.eval().to(dtype)
 
-        sd = load_torch_file(os.path.join(model_path, "consolidated.00-of-01.safetensors"))
+        sd = load_torch_file(safetensors_path)
         if is_accelerate_available:
             for key in sd:
                 set_module_tensor_to_device(model, key, device=offload_device, value=sd[key])
@@ -134,25 +135,18 @@ class DownloadAndLoadGemmaModel:
 
         attn_implementation = "flash_attention_2" if FLASH_ATTN_AVAILABLE and precision != "fp32" else "sdpa"
         print(f"Gemma attention mode: {attn_implementation}")
-        if mode == 'text_encode':
-            text_encoder = AutoModel.from_pretrained(
-                gemma_path, 
-                torch_dtype=dtype, 
-                device_map=device, 
-                attn_implementation=attn_implementation,
-                ).eval()
-        elif mode == 'LLM':
-            text_encoder = GemmaForCausalLM.from_pretrained(
-                gemma_path,
-                torch_dtype=dtype, 
-                device_map=device,
-                attn_implementation=attn_implementation
-                ).eval()
+
+        model_class = AutoModel if mode == 'text_encode' else GemmaForCausalLM
+        text_encoder = model_class.from_pretrained(
+            gemma_path, 
+            torch_dtype=dtype, 
+            device_map=device, 
+            attn_implementation=attn_implementation,
+        ).eval()
 
         gemma_model = {
             'tokenizer': tokenizer,
             'text_encoder': text_encoder,
-
         }
 
         return (gemma_model,)
