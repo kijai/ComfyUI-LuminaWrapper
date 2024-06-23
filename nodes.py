@@ -104,12 +104,6 @@ class DownloadAndLoadGemmaModel:
                     "default": 'bf16'
                     }),
             },
-        "optional": {
-            "mode": ([ 'text_encode','LLM'],
-                    {
-                    "default": 'text_encode'
-                    }),
-            }
         }
 
     RETURN_TYPES = ("GEMMAODEL",)
@@ -117,7 +111,7 @@ class DownloadAndLoadGemmaModel:
     FUNCTION = "loadmodel"
     CATEGORY = "LuminaWrapper"
 
-    def loadmodel(self, precision, mode='text_encode'):
+    def loadmodel(self, precision):
         device = mm.get_torch_device()
         dtype = {"bf16": torch.bfloat16, "fp16": torch.float16, "fp32": torch.float32}[precision]
 
@@ -137,7 +131,8 @@ class DownloadAndLoadGemmaModel:
         attn_implementation = "flash_attention_2" if FLASH_ATTN_AVAILABLE and precision != "fp32" else "sdpa"
         print(f"Gemma attention mode: {attn_implementation}")
 
-        model_class = AutoModel if mode == 'text_encode' else GemmaForCausalLM
+        #model_class = AutoModel if mode == 'text_encode' else GemmaForCausalLM
+        model_class = GemmaForCausalLM
         text_encoder = model_class.from_pretrained(
             gemma_path, 
             torch_dtype=dtype, 
@@ -321,6 +316,13 @@ class GemmaSampler:
                 "gemma_model": ("GEMMAODEL", ),
                 "prompt": ("STRING", {"multiline": True, "default": "",}),
                 "max_length": ("INT", {"default": 128, "min": 1, "max": 512, "step": 1}),
+                "temperature": ("FLOAT", {"default": 0.7, "min": 0.0, "max": 1.0, "step": 0.01}),
+                "do_sample": ("BOOLEAN", {"default": True}),
+                "early_stopping": ("BOOLEAN", {"default": False}),
+                "top_k": ("INT", {"default": 50, "min": 0, "max": 100, "step": 1}),
+                "top_p": ("FLOAT", {"default": 0.95, "min": 0.0, "max": 1.0, "step": 0.01}),
+                "repetition_penalty": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 10.0, "step": 0.01}),
+                "length_penalty": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 10.0, "step": 0.01}),
             },
             "optional": {
                 "keep_model_loaded": ("BOOLEAN", {"default": False}),
@@ -332,7 +334,8 @@ class GemmaSampler:
     FUNCTION = "process"
     CATEGORY = "LuminaWrapper"
 
-    def process(self, gemma_model, prompt, max_length, keep_model_loaded=False):
+    def process(self, gemma_model, prompt, max_length, temperature, do_sample, top_k, top_p, repetition_penalty, 
+                length_penalty, early_stopping, keep_model_loaded=False):
         device = mm.get_torch_device()
         offload_device = mm.unet_offload_device()
 
@@ -353,6 +356,13 @@ class GemmaSampler:
         result = model.generate(
             text_input_ids,
             max_length=max_length,
+            temperature=temperature,
+            do_sample=do_sample,
+            early_stopping=early_stopping,
+            top_k=top_k,
+            top_p=top_p,
+            repetition_penalty=repetition_penalty,
+            length_penalty=length_penalty,
         )
         decoded = tokenizer.batch_decode(result, skip_special_tokens=True, clean_up_tokenization_spaces=False)[0]
 
