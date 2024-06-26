@@ -403,6 +403,7 @@ class LuminaT2ISampler:
             },
             "optional": {
                 "keep_model_loaded": ("BOOLEAN", {"default": False}),
+                "strength": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 1.0, "step": 0.01}),
             }
         }
     
@@ -412,27 +413,34 @@ class LuminaT2ISampler:
     CATEGORY = "LuminaWrapper"
 
     def process(self, lumina_model, lumina_embeds, latent, seed, steps, cfg, proportional_attn, solver, t_shift, 
-                do_extrapolation, scaling_watershed, keep_model_loaded=False):
+                do_extrapolation, scaling_watershed, strength=1.0, keep_model_loaded=False):
         device = mm.get_torch_device()
         offload_device = mm.unet_offload_device()
 
         model = lumina_model['model']
         dtype = lumina_model['dtype']
-        
-        z = latent["samples"].clone()
 
-        B = z.shape[0]
-        W = z.shape[3] * 8
-        H = z.shape[2] * 8
+        vae_scaling_factor = 0.13025 #SDXL scaling factor
+        
+        x1 = latent["samples"].clone() * vae_scaling_factor
+
+        ode = ODE(steps, solver, t_shift, strength)
+
+        B = x1.shape[0]
+        W = x1.shape[3] * 8
+        H = x1.shape[2] * 8
+
+        z = torch.zeros_like(x1)
 
         for i in range(B):
             torch.manual_seed(seed + i)
-            noise = torch.randn_like(z[i])
-            z[i] = z[i] + noise
+            z[i] = torch.randn_like(x1[i])
+            #z[i] = z[i] + noise
+            z[i] = z[i] * (1 - ode.t[0]) + x1[i] * ode.t[0]
         
         #torch.random.manual_seed(int(seed))
         #z = torch.randn([1, 4, z.shape[2], z.shape[3]], device=device)
-
+       
         z = z.repeat(2, 1, 1, 1)
         z = z.to(dtype).to(device)
 
@@ -481,7 +489,7 @@ class LuminaT2ISampler:
         #inference
         model.to(device)
 
-        samples = ODE(steps, solver, t_shift).sample(z, model.forward_with_cfg, **model_kwargs)[-1]
+        samples = ode.sample(z, model.forward_with_cfg, **model_kwargs)[-1]
 
         if not keep_model_loaded:
             print("Offloading Lumina model...")
@@ -490,8 +498,6 @@ class LuminaT2ISampler:
             gc.collect()
             
         samples = samples[:len(samples) // 2]
-
-        vae_scaling_factor = 0.13025 #SDXL scaling factor
         samples = samples / vae_scaling_factor
 
         return ({'samples': samples},)   
