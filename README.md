@@ -40,6 +40,9 @@ The workflows are including in the examples -folder
 
 ![lumina_composition_example](https://github.com/kijai/ComfyUI-LuminaWrapper/assets/40791699/99603330-903a-444f-a23f-3ac0f332e73e)
 
+![lumina_i2i_example](https://github.com/kijai/ComfyUI-LuminaWrapper/assets/40791699/680c032e-b700-4ec4-9484-977710228043)
+
+
 Original repo:
 
 https://github.com/Alpha-VLLM/Lumina-T2X
