@@ -435,7 +435,6 @@ class LuminaT2ISampler:
         for i in range(B):
             torch.manual_seed(seed + i)
             z[i] = torch.randn_like(x1[i])
-            #z[i] = z[i] + noise
             z[i] = z[i] * (1 - ode.t[0]) + x1[i] * ode.t[0]
         
         #torch.random.manual_seed(int(seed))

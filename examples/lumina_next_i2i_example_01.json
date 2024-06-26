@@ -1,0 +1,787 @@
+{
+  "last_node_id": 33,
+  "last_link_id": 58,
+  "nodes": [
+    {
+      "id": 15,
+      "type": "DownloadAndLoadGemmaModel",
+      "pos": [
+        -317,
+        271
+      ],
+      "size": {
+        "0": 315,
+        "1": 82
+      },
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "outputs": [
+        {
+          "name": "gemma_model",
+          "type": "GEMMAODEL",
+          "links": [
+            25
+          ],
+          "shape": 3
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "DownloadAndLoadGemmaModel"
+      },
+      "widgets_values": [
+        "bf16"
+      ]
+    },
+    {
+      "id": 2,
+      "type": "DownloadAndLoadLuminaModel",
+      "pos": [
+        -317,
+        140
+      ],
+      "size": {
+        "0": 303.01300048828125,
+        "1": 82
+      },
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "outputs": [
+        {
+          "name": "lumina_model",
+          "type": "LUMINAMODEL",
+          "links": [
+            28
+          ],
+          "shape": 3
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "DownloadAndLoadLuminaModel"
+      },
+      "widgets_values": [
+        "Alpha-VLLM/Lumina-Next-SFT",
+        "bf16"
+      ]
+    },
+    {
+      "id": 10,
+      "type": "VAELoader",
+      "pos": [
+        -319,
+        36
+      ],
+      "size": {
+        "0": 315,
+        "1": 58
+      },
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "outputs": [
+        {
+          "name": "VAE",
+          "type": "VAE",
+          "links": [
+            53
+          ],
+          "shape": 3,
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "VAELoader"
+      },
+      "widgets_values": [
+        "sdxl_vae.safetensors"
+      ]
+    },
+    {
+      "id": 29,
+      "type": "GetNode",
+      "pos": [
+        945,
+        188
+      ],
+      "size": {
+        "0": 210,
+        "1": 58
+      },
+      "flags": {
+        "collapsed": true
+      },
+      "order": 3,
+      "mode": 0,
+      "outputs": [
+        {
+          "name": "VAE",
+          "type": "VAE",
+          "links": [
+            54
+          ]
+        }
+      ],
+      "title": "Get_VAE",
+      "properties": {},
+      "widgets_values": [
+        "VAE"
+      ],
+      "color": "#322",
+      "bgcolor": "#533"
+    },
+    {
+      "id": 21,
+      "type": "VAEEncode",
+      "pos": [
+        -322,
+        434
+      ],
+      "size": {
+        "0": 210,
+        "1": 46
+      },
+      "flags": {
+        "collapsed": true
+      },
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "pixels",
+          "type": "IMAGE",
+          "link": 48
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 55,
+          "slot_index": 1
+        }
+      ],
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            50
+          ],
+          "shape": 3,
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "VAEEncode"
+      }
+    },
+    {
+      "id": 32,
+      "type": "GetNode",
+      "pos": [
+        -469,
+        432
+      ],
+      "size": {
+        "0": 210,
+        "1": 58
+      },
+      "flags": {
+        "collapsed": true
+      },
+      "order": 4,
+      "mode": 0,
+      "outputs": [
+        {
+          "name": "VAE",
+          "type": "VAE",
+          "links": [
+            55
+          ]
+        }
+      ],
+      "title": "Get_VAE",
+      "properties": {},
+      "widgets_values": [
+        "VAE"
+      ],
+      "color": "#322",
+      "bgcolor": "#533"
+    },
+    {
+      "id": 20,
+      "type": "LoadImage",
+      "pos": [
+        -501,
+        548
+      ],
+      "size": [
+        310.7085632324219,
+        378.0042419433594
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            47
+          ],
+          "shape": 3,
+          "slot_index": 0
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": null,
+          "shape": 3
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "ComfyUI_temp_goygz_00446_ (10).png",
+        "image"
+      ]
+    },
+    {
+      "id": 13,
+      "type": "LuminaGemmaTextEncode",
+      "pos": [
+        160,
+        197
+      ],
+      "size": {
+        "0": 400,
+        "1": 200
+      },
+      "flags": {},
+      "order": 11,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "gemma_model",
+          "type": "GEMMAODEL",
+          "link": 25,
+          "slot_index": 0
+        },
+        {
+          "name": "latent",
+          "type": "LATENT",
+          "link": 52
+        }
+      ],
+      "outputs": [
+        {
+          "name": "lumina_embeds",
+          "type": "LUMINATEMBED",
+          "links": [
+            29
+          ],
+          "shape": 3,
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LuminaGemmaTextEncode"
+      },
+      "widgets_values": [
+        "high quality photograph of a mechanical robot toad",
+        "bad quality, nsfw",
+        true
+      ]
+    },
+    {
+      "id": 27,
+      "type": "VHS_DuplicateLatents",
+      "pos": [
+        -163,
+        407
+      ],
+      "size": [
+        299.2461547851558,
+        78
+      ],
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "latents",
+          "type": "LATENT",
+          "link": 50
+        }
+      ],
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            52,
+            56
+          ],
+          "shape": 3,
+          "slot_index": 0
+        },
+        {
+          "name": "count",
+          "type": "INT",
+          "links": null,
+          "shape": 3
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "VHS_DuplicateLatents"
+      },
+      "widgets_values": {
+        "multiply_by": 4
+      }
+    },
+    {
+      "id": 17,
+      "type": "LuminaT2ISampler",
+      "pos": [
+        600,
+        121
+      ],
+      "size": {
+        "0": 315,
+        "1": 338
+      },
+      "flags": {},
+      "order": 13,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "lumina_model",
+          "type": "LUMINAMODEL",
+          "link": 28
+        },
+        {
+          "name": "lumina_embeds",
+          "type": "LUMINATEMBED",
+          "link": 29
+        },
+        {
+          "name": "latent",
+          "type": "LATENT",
+          "link": 58
+        }
+      ],
+      "outputs": [
+        {
+          "name": "samples",
+          "type": "LATENT",
+          "links": [
+            33
+          ],
+          "shape": 3,
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LuminaT2ISampler"
+      },
+      "widgets_values": [
+        143,
+        "fixed",
+        25,
+        4,
+        false,
+        false,
+        0.3,
+        4,
+        "midpoint",
+        true,
+        0.5
+      ]
+    },
+    {
+      "id": 33,
+      "type": "Reroute",
+      "pos": [
+        460,
+        410
+      ],
+      "size": [
+        90.4,
+        26
+      ],
+      "flags": {},
+      "order": 12,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "",
+          "type": "*",
+          "link": 56
+        }
+      ],
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            58
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "showOutputText": true,
+        "horizontal": false
+      }
+    },
+    {
+      "id": 28,
+      "type": "SetNode",
+      "pos": [
+        17,
+        67
+      ],
+      "size": {
+        "0": 210,
+        "1": 58
+      },
+      "flags": {
+        "collapsed": true
+      },
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "VAE",
+          "type": "VAE",
+          "link": 53
+        }
+      ],
+      "outputs": [
+        {
+          "name": "*",
+          "type": "*",
+          "links": null
+        }
+      ],
+      "title": "Set_VAE",
+      "properties": {
+        "previousName": "VAE"
+      },
+      "widgets_values": [
+        "VAE"
+      ],
+      "color": "#322",
+      "bgcolor": "#533"
+    },
+    {
+      "id": 26,
+      "type": "PreviewImage",
+      "pos": [
+        452,
+        515
+      ],
+      "size": [
+        447.5752929687501,
+        467.20423812866215
+      ],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 49
+        }
+      ],
+      "title": "InputImage",
+      "properties": {
+        "Node name for S&R": "PreviewImage"
+      }
+    },
+    {
+      "id": 9,
+      "type": "VAEDecode",
+      "pos": [
+        1080,
+        149
+      ],
+      "size": {
+        "0": 210,
+        "1": 46
+      },
+      "flags": {
+        "collapsed": true
+      },
+      "order": 14,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "samples",
+          "type": "LATENT",
+          "link": 33
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 54,
+          "slot_index": 1
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            14
+          ],
+          "shape": 3,
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "VAEDecode"
+      }
+    },
+    {
+      "id": 11,
+      "type": "PreviewImage",
+      "pos": [
+        938,
+        242
+      ],
+      "size": [
+        700.5826416015625,
+        729.5712127685547
+      ],
+      "flags": {},
+      "order": 15,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 14
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "PreviewImage"
+      }
+    },
+    {
+      "id": 25,
+      "type": "ImageResizeKJ",
+      "pos": [
+        -177,
+        560
+      ],
+      "size": [
+        315,
+        242
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 47
+        },
+        {
+          "name": "get_image_size",
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "name": "width_input",
+          "type": "INT",
+          "link": null,
+          "widget": {
+            "name": "width_input"
+          }
+        },
+        {
+          "name": "height_input",
+          "type": "INT",
+          "link": null,
+          "widget": {
+            "name": "height_input"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            48,
+            49
+          ],
+          "shape": 3,
+          "slot_index": 0
+        },
+        {
+          "name": "width",
+          "type": "INT",
+          "links": null,
+          "shape": 3
+        },
+        {
+          "name": "height",
+          "type": "INT",
+          "links": null,
+          "shape": 3,
+          "slot_index": 2
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ImageResizeKJ"
+      },
+      "widgets_values": [
+        1024,
+        1024,
+        "lanczos",
+        true,
+        64,
+        0,
+        0
+      ]
+    }
+  ],
+  "links": [
+    [
+      14,
+      9,
+      0,
+      11,
+      0,
+      "IMAGE"
+    ],
+    [
+      25,
+      15,
+      0,
+      13,
+      0,
+      "GEMMAODEL"
+    ],
+    [
+      28,
+      2,
+      0,
+      17,
+      0,
+      "LUMINAMODEL"
+    ],
+    [
+      29,
+      13,
+      0,
+      17,
+      1,
+      "LUMINATEMBED"
+    ],
+    [
+      33,
+      17,
+      0,
+      9,
+      0,
+      "LATENT"
+    ],
+    [
+      47,
+      20,
+      0,
+      25,
+      0,
+      "IMAGE"
+    ],
+    [
+      48,
+      25,
+      0,
+      21,
+      0,
+      "IMAGE"
+    ],
+    [
+      49,
+      25,
+      0,
+      26,
+      0,
+      "IMAGE"
+    ],
+    [
+      50,
+      21,
+      0,
+      27,
+      0,
+      "LATENT"
+    ],
+    [
+      52,
+      27,
+      0,
+      13,
+      1,
+      "LATENT"
+    ],
+    [
+      53,
+      10,
+      0,
+      28,
+      0,
+      "*"
+    ],
+    [
+      54,
+      29,
+      0,
+      9,
+      1,
+      "VAE"
+    ],
+    [
+      55,
+      32,
+      0,
+      21,
+      1,
+      "VAE"
+    ],
+    [
+      56,
+      27,
+      0,
+      33,
+      0,
+      "*"
+    ],
+    [
+      58,
+      33,
+      0,
+      17,
+      2,
+      "LATENT"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 1,
+      "offset": {
+        "0": 603.9016723632812,
+        "1": 37.74279022216797
+      }
+    }
+  },
+  "version": 0.4
+}
