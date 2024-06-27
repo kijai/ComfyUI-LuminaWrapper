@@ -6,6 +6,7 @@ import gc
 
 import comfy.model_management as mm
 from comfy.utils import ProgressBar, load_torch_file
+
 import folder_paths
 
 script_directory = os.path.dirname(os.path.abspath(__file__))
@@ -485,16 +486,23 @@ class LuminaT2ISampler:
             model_kwargs["scale_factor"] = 1.0
             model_kwargs["scale_watershed"] = 1.0
 
-        #inference
-        model.to(device)
-
-        samples = ode.sample(z, model.forward_with_cfg, **model_kwargs)[-1]
-
-        if not keep_model_loaded:
+        def offload_model():
             print("Offloading Lumina model...")
             model.to(offload_device)
             mm.soft_empty_cache()
             gc.collect()
+
+        #inference
+        model.to(device)
+        try:
+            samples = ode.sample(z, model.forward_with_cfg, **model_kwargs)[-1]
+        except:
+            if not keep_model_loaded:
+                offload_model()
+            raise mm.InterruptProcessingException()
+
+        if not keep_model_loaded:
+            offload_model()           
             
         samples = samples[:len(samples) // 2]
         samples = samples / vae_scaling_factor
