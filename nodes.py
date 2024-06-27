@@ -15,6 +15,7 @@ sys.path.append(script_directory)
 import lumina_models
 from transport import ODE
 from transformers import AutoModel, AutoTokenizer, GemmaForCausalLM
+from argparse import Namespace
 
 from contextlib import nullcontext
 try:
@@ -69,11 +70,23 @@ class DownloadAndLoadLuminaModel:
             print(f"Downloading Lumina model to: {model_path}")
             from huggingface_hub import snapshot_download
             snapshot_download(repo_id=model,
-                            ignore_patterns=['*ema*'],
+                            ignore_patterns=['*ema*', '*.pth'],
                             local_dir=model_path,
                             local_dir_use_symlinks=False)
                   
-        train_args = torch.load(os.path.join(model_path, "model_args.pth"))
+        #train_args = torch.load(os.path.join(model_path, "model_args.pth"))
+
+        train_args = Namespace(
+            model='NextDiT_2B_GQA_patch2',
+            image_size=1024,
+            vae='sdxl',
+            precision='bf16',
+            grad_precision='fp32',
+            grad_clip=2.0,
+            wd=0.0,
+            qk_norm=True,
+            model_parallel_size=1
+        )
 
         with (init_empty_weights() if is_accelerate_available else nullcontext()):
             model = lumina_models.__dict__[train_args.model](qk_norm=train_args.qk_norm, cap_feat_dim=2048)
