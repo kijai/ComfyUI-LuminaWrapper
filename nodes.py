@@ -509,9 +509,10 @@ class LuminaT2ISampler:
         model.to(device)
         try:
             samples = ode.sample(z, model.forward_with_cfg, **model_kwargs)[-1]
-        except:
+        except Exception as e:
             if not keep_model_loaded:
                 offload_model()
+            print(e)
             raise mm.InterruptProcessingException()
 
         if not keep_model_loaded:
