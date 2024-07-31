@@ -2,7 +2,7 @@
 name = "comfyui-luminawrapper"
 description = "ComfyUI wrapper nodes for Lumina models"
 version = "1.0.1"
-license = "MIT"
+license = { text = "MIT License" }
 dependencies = ["torchdiffeq", "accelerate", "tqdm", "transformers>=4.38.0"]
 
 [project.urls]
